@@ -8,6 +8,7 @@ import 'package:fludo/util/colors.dart';
 import 'package:fludo/players/players.dart';
 import 'package:fludo/result/result.dart';
 import 'package:fludo/result/result_notifier.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -25,9 +26,9 @@ class _FludoGameState extends State<FludoGame> with TickerProviderStateMixin {
   Animation<Color> _playerHighlightAnim;
   Animation<double> _diceHighlightAnim;
   AnimationController _playerHighlightAnimCont, _diceHighlightAnimCont;
-  List<List<AnimationController>> _playerAnimContList = List();
-  List<List<Animation<Offset>>> _playerAnimList = List();
-  List<List<int>> _winnerPawnList = List();
+  List<List<AnimationController>> _playerAnimContList = [];
+  List<List<Animation<Offset>>> _playerAnimList = [];
+  List<List<int>> _winnerPawnList = [];
   bool _provideFreeTurn = false;
   CollisionDetails _collisionDetails = CollisionDetails();
 
@@ -42,7 +43,7 @@ class _FludoGameState extends State<FludoGame> with TickerProviderStateMixin {
   List<List<List<Rect>>> _playerTracks;
   List<Rect> _safeSpots;
   List<List<MapEntry<int, Rect>>> _pawnCurrentStepInfo =
-      List(); //step index, rect
+      []; //step index, rect
 
   PlayersNotifier _playerPaintNotifier;
   ResultNotifier _resultNotifier;
@@ -52,7 +53,6 @@ class _FludoGameState extends State<FludoGame> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
-    SystemChrome.setEnabledSystemUIOverlays([]); //full screen
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown
@@ -106,107 +106,106 @@ class _FludoGameState extends State<FludoGame> with TickerProviderStateMixin {
               create: (_) => _resultNotifier),
           ChangeNotifierProvider<DiceNotifier>(create: (_) => _diceNotifier),
         ],
-        child: Stack(
-          children: <Widget>[
-            SizedBox.expand(
-                child: Container(
-              color: const Color(0xff1f0d67),
-            )),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Container(
-                    color: Colors.white,
-                    margin: const EdgeInsets.all(20),
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: Stack(
-                        children: <Widget>[
-                          SizedBox.expand(
-                            child: CustomPaint(
-                              painter: BoardPainter(
-                                  trackCalculationListener: (playerTracks) {
-                                _playerTracks = playerTracks;
-                              }),
+        child: Center(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: <Widget>[
+                        Container(
+                          color: Colors.white,
+                          margin: const EdgeInsets.all(20),
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: Stack(
+                              children: <Widget>[
+                                SizedBox.expand(
+                                  child: CustomPaint(
+                                    painter: BoardPainter(
+                                        trackCalculationListener: (playerTracks) {
+                                      _playerTracks = playerTracks;
+                                    }),
+                                  ),
+                                ),
+                                SizedBox.expand(
+                                    child: AnimatedBuilder(
+                                  animation: _playerHighlightAnim,
+                                  builder: (_, __) => CustomPaint(
+                                    painter: OverlaySurface(
+                                        highlightColor: _playerHighlightAnim.value,
+                                        selectedHomeIndex: _currentTurn,
+                                        clickOffset: (clickOffset) {
+                                          _handleClick(clickOffset);
+                                        }),
+                                  ),
+                                )),
+                                Consumer<PlayersNotifier>(builder: (_, notifier, __) {
+                                  if (notifier.shouldPaintPlayers)
+                                    return SizedBox.expand(
+                                      child: Stack(
+                                        children: _buildPawnWidgets(),
+                                      ),
+                                    );
+                                  else
+                                    return Container();
+                                }),
+                                Consumer<ResultNotifier>(builder: (_, notifier, __) {
+                                  return SizedBox.expand(
+                                      child: CustomPaint(
+                                    painter: ResultPainter(notifier.ranks),
+                                  ));
+                                })
+                              ],
                             ),
                           ),
-                          SizedBox.expand(
-                              child: AnimatedBuilder(
-                            animation: _playerHighlightAnim,
-                            builder: (_, __) => CustomPaint(
-                              painter: OverlaySurface(
-                                  highlightColor: _playerHighlightAnim.value,
-                                  selectedHomeIndex: _currentTurn,
-                                  clickOffset: (clickOffset) {
-                                    _handleClick(clickOffset);
-                                  }),
-                            ),
-                          )),
-                          Consumer<PlayersNotifier>(builder: (_, notifier, __) {
-                            if (notifier.shoulPaintPlayers)
-                              return SizedBox.expand(
-                                child: Stack(
-                                  children: _buildPawnWidgets(),
-                                ),
-                              );
-                            else
-                              return Container();
-                          }),
-                          Consumer<ResultNotifier>(builder: (_, notifier, __) {
-                            return SizedBox.expand(
-                                child: CustomPaint(
-                              painter: ResultPainter(notifier.ranks),
-                            ));
-                          })
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(
-                    height: 50,
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      if (_diceHighlightAnimCont.isAnimating) {
-                        _playerHighlightAnimCont.reset();
-                        _diceHighlightAnimCont.reset();
-                        _diceNotifier.rollDice();
-                      }
-                    },
-                    child: SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: Stack(children: [
-                          SizedBox.expand(
-                            child: AnimatedBuilder(
-                              animation: _diceHighlightAnim,
-                              builder: (_, __) => CustomPaint(
-                                painter:
-                                    DiceBasePainter(_diceHighlightAnim.value),
+                  Padding(
+                    padding:  EdgeInsets.fromLTRB(10.0, 80, 25, 0),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (_diceHighlightAnimCont.isAnimating) {
+                          _playerHighlightAnimCont.reset();
+                          _diceHighlightAnimCont.reset();
+                          _diceNotifier.rollDice();
+                        }
+                      },
+                      child: SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: Stack(children: [
+                            SizedBox.expand(
+                              child: AnimatedBuilder(
+                                animation: _diceHighlightAnim,
+                                builder: (_, __) => CustomPaint(
+                                  painter:
+                                  DiceBasePainter(_diceHighlightAnim.value),
+                                ),
                               ),
                             ),
-                          ),
-                          Consumer<DiceNotifier>(builder: (_, notifier, __) {
-                            if (notifier.isRolled) {
-                              _highlightCurrentPlayer();
-                              _diceOutput = notifier.output;
-                              if (_diceOutput == 6) _straightSixesCounter++;
-                              _checkDiceResultValidity();
-                            }
-                            return SizedBox.expand(
-                              child: CustomPaint(
-                                painter: DicePaint(notifier.output),
-                              ),
-                            );
-                          })
-                        ])),
+                            Consumer<DiceNotifier>(builder: (_, notifier, __) {
+                              if (notifier.isRolled) {
+                                _highlightCurrentPlayer();
+                                _diceOutput = notifier.output;
+                                if (_diceOutput == 6) _straightSixesCounter++;
+                                _checkDiceResultValidity();
+                              }
+                              return SizedBox.expand(
+                                child: CustomPaint(
+                                  painter: DicePaint(notifier.output),
+                                ),
+                              );
+                            })
+                          ])),
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+
       ),
     );
   }
@@ -232,11 +231,13 @@ class _FludoGameState extends State<FludoGame> with TickerProviderStateMixin {
       for (int pawnIndex = 0; pawnIndex < 4; pawnIndex++)
         playerPawns.add(SizedBox.expand(
           child: AnimatedBuilder(
-            builder: (_, child) => CustomPaint(
-                painter: PlayersPainter(
-                    playerCurrentSpot:
-                        _playerAnimList[playerIndex][pawnIndex].value,
-                    playerColor: playerColor)),
+            builder: (_, child) {
+              return CustomPaint(
+                  painter: PlayersPainter(
+                  playerCurrentSpot:
+                  _playerAnimList[playerIndex][pawnIndex].value,
+                  playerColor: playerColor) );
+            } ,
             animation: _playerAnimList[playerIndex][pawnIndex],
           ),
         ));

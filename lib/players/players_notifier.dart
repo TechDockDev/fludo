@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 class PlayersNotifier with ChangeNotifier  {
-  bool _shoulPaintPlayers = false;
+  bool _shouldPaintPlayers = false;
 
-  get shoulPaintPlayers => _shoulPaintPlayers;
+  get shouldPaintPlayers => _shouldPaintPlayers;
 
   void rebuildPaint() {
-    _shoulPaintPlayers = true;
+    _shouldPaintPlayers = true;
     notifyListeners();
   }
 }
